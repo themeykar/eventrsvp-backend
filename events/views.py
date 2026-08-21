@@ -1,8 +1,16 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from django.db.models import Count, Q, Sum
+from rest_framework import status, viewsets
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import Event
-from .serializers import EventSerializer
+from .models import Event, RSVP
+from .serializers import (
+    EventSerializer,
+    PublicEventSerializer,
+    RSVPListSerializer,
+    RSVPSerializer,
+)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -22,3 +30,106 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(host=self.request.user)
+
+
+class PublicEventView(APIView):
+    """
+    GET /api/events/{id}/public/
+
+    Public — returns basic event details for anyone with the link.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, event_id):
+        try:
+            event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = PublicEventSerializer(event)
+        return Response(serializer.data)
+
+
+class RSVPCreateView(APIView):
+    """
+    POST /api/events/{id}/rsvp/
+
+    Public — guests submit an RSVP with no account required.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, event_id):
+        try:
+            event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = RSVPSerializer(
+            data=request.data,
+            context={"event": event},
+        )
+        serializer.is_valid(raise_exception=True)
+        rsvp = serializer.save()
+
+        return Response(
+            {
+                "message": "RSVP submitted successfully.",
+                "guest_name": rsvp.guest_name,
+                "status": rsvp.status,
+                "plus_one_count": rsvp.plus_one_count,
+                "event_title": event.title,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RSVPListView(APIView):
+    """
+    GET /api/events/{id}/rsvps/
+
+    Authenticated — returns the full RSVP list with summary counts,
+    but only if the requesting user is the event's host.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, event_id):
+        # Scoped to the authenticated host — returns 404 if not the owner
+        try:
+            event = Event.objects.get(pk=event_id, host=request.user)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        rsvps = event.rsvps.all().order_by("-created_at")
+
+        # Build summary counts
+        summary = rsvps.aggregate(
+            yes_count=Count("id", filter=Q(status="yes")),
+            no_count=Count("id", filter=Q(status="no")),
+            maybe_count=Count("id", filter=Q(status="maybe")),
+            total_plus_ones=Sum("plus_one_count"),
+        )
+        summary["total_plus_ones"] = summary["total_plus_ones"] or 0
+        summary["total_rsvps"] = rsvps.count()
+
+        serializer = RSVPListSerializer(rsvps, many=True)
+
+        return Response(
+            {
+                "summary": summary,
+                "rsvps": serializer.data,
+            }
+        )
