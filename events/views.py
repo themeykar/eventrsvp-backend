@@ -60,6 +60,7 @@ class RSVPCreateView(APIView):
     POST /api/events/{id}/rsvp/
 
     Public — guests submit an RSVP with no account required.
+    Upserts the RSVP record if an RSVP for (event, guest_id) already exists.
     """
 
     authentication_classes = []
@@ -79,7 +80,23 @@ class RSVPCreateView(APIView):
             context={"event": event},
         )
         serializer.is_valid(raise_exception=True)
-        rsvp = serializer.save()
+
+        guest_id = serializer.validated_data["guest_id"]
+        guest_name = serializer.validated_data["guest_name"]
+        rsvp_status = serializer.validated_data["status"]
+        plus_one_count = serializer.validated_data.get("plus_one_count", 0)
+
+        rsvp, created = RSVP.objects.update_or_create(
+            event=event,
+            guest_id=guest_id,
+            defaults={
+                "guest_name": guest_name,
+                "status": rsvp_status,
+                "plus_one_count": plus_one_count,
+            },
+        )
+
+        res_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
 
         return Response(
             {
@@ -89,7 +106,7 @@ class RSVPCreateView(APIView):
                 "plus_one_count": rsvp.plus_one_count,
                 "event_title": event.title,
             },
-            status=status.HTTP_201_CREATED,
+            status=res_status,
         )
 
 

@@ -22,7 +22,7 @@ class PublicEventSerializer(serializers.ModelSerializer):
 
 
 class RSVPSerializer(serializers.ModelSerializer):
-    """Validates and creates a guest RSVP submission."""
+    """Validates guest RSVP submission."""
 
     class Meta:
         model = RSVP
@@ -33,19 +33,15 @@ class RSVPSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Guest name cannot be blank.")
         return value
 
-    def validate(self, data):
-        event = self.context["event"]
-        guest_id = data.get("guest_id")
-
-        if RSVP.objects.filter(event=event, guest_id=guest_id).exists():
-            raise serializers.ValidationError(
-                {"guest_id": "You have already submitted an RSVP for this event."}
-            )
-        return data
-
     def create(self, validated_data):
-        validated_data["event"] = self.context["event"]
-        return super().create(validated_data)
+        event = self.context["event"]
+        guest_id = validated_data.pop("guest_id")
+        rsvp, _ = RSVP.objects.update_or_create(
+            event=event,
+            guest_id=guest_id,
+            defaults=validated_data,
+        )
+        return rsvp
 
 
 class RSVPListSerializer(serializers.ModelSerializer):
