@@ -26,7 +26,7 @@ class RSVPSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RSVP
-        fields = ("guest_name", "status", "plus_one_count", "guest_id")
+        fields = ("guest_name", "guest_email", "status", "plus_one_count", "guest_id")
 
     def validate_guest_name(self, value):
         if not value.strip():
@@ -49,6 +49,6 @@ class RSVPListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RSVP
-        fields = ("id", "guest_name", "status", "plus_one_count", "guest_id", "created_at")
+        fields = ("id", "guest_name", "guest_email", "status", "plus_one_count", "guest_id", "created_at")
         read_only_fields = fields
 

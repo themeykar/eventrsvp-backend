@@ -35,6 +35,7 @@ class RSVP(models.Model):
         related_name="rsvps",
     )
     guest_name = models.CharField(max_length=255)
+    guest_email = models.EmailField()
     status = models.CharField(max_length=5, choices=STATUS_CHOICES)
     plus_one_count = models.PositiveIntegerField(default=0)
     guest_id = models.CharField(max_length=255)
