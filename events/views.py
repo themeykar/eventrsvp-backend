@@ -1,4 +1,7 @@
+import csv
 from django.db.models import Count, Q, Sum
+from django.http import HttpResponse
+from django.utils.text import slugify
 from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -164,3 +167,49 @@ class RSVPListView(APIView):
                 "rsvps": serializer.data,
             }
         )
+
+
+class RSVPExportView(APIView):
+    """
+    GET /api/events/{id}/rsvps/export/
+
+    Authenticated — returns guest list for the event as a CSV file attachment.
+    Scoped to event host — returns 404 if not found or user is not the host.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, event_id):
+        try:
+            event = Event.objects.get(pk=event_id, host=request.user)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        filename_slug = slugify(event.title) or "event"
+        filename = f"{filename_slug}-guestlist.csv"
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        writer.writerow(["guest_name", "guest_email", "status", "plus_one_count", "created_at"])
+
+        for rsvp in event.rsvps.all().order_by("-created_at"):
+            created_at_str = (
+                rsvp.created_at.isoformat()
+                if hasattr(rsvp.created_at, "isoformat")
+                else str(rsvp.created_at)
+            )
+            writer.writerow([
+                rsvp.guest_name,
+                rsvp.guest_email,
+                rsvp.status,
+                rsvp.plus_one_count,
+                created_at_str,
+            ])
+
+        return response
+
