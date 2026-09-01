@@ -11,7 +11,10 @@ from .serializers import (
     RSVPListSerializer,
     RSVPSerializer,
 )
-from .utils import send_rsvp_confirmation_email
+from .utils import (
+    send_host_rsvp_notification_email,
+    send_rsvp_confirmation_email,
+)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -62,7 +65,7 @@ class RSVPCreateView(APIView):
 
     Public — guests submit an RSVP with no account required.
     Upserts the RSVP record if an RSVP for (event, guest_id) already exists.
-    Sends confirmation email to the guest.
+    Sends confirmation email to the guest and notification email to the host.
     """
 
     authentication_classes = []
@@ -101,6 +104,7 @@ class RSVPCreateView(APIView):
         )
 
         email_sent = send_rsvp_confirmation_email(rsvp, event)
+        host_notified = send_host_rsvp_notification_email(rsvp, event)
 
         res_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
 
@@ -113,9 +117,11 @@ class RSVPCreateView(APIView):
                 "plus_one_count": rsvp.plus_one_count,
                 "event_title": event.title,
                 "email_sent": email_sent,
+                "host_notified": host_notified,
             },
             status=res_status,
         )
+
 
 
 class RSVPListView(APIView):
