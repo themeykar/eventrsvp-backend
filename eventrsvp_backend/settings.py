@@ -15,6 +15,7 @@ from datetime import timedelta
 
 import dj_database_url
 from decouple import config
+import os 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +35,10 @@ ALLOWED_HOSTS = config(
     default='localhost,127.0.0.1',
     cast=lambda v: [host.strip() for host in v.split(',') if host.strip()],
 )
+
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@updates.eventrsvp.site")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+
 
 
 # Application definition

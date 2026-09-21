@@ -1,6 +1,7 @@
 import logging
 from decouple import config
 import resend
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def send_rsvp_confirmation_email(rsvp, event):
 
     try:
         resend.Emails.send({
-            "from": "updates.eventrsvp.site",
+            "from": settings.DEFAULT_FROM_EMAIL,
             "to": [rsvp.guest_email],
             "subject": subject,
             "html": html_content,
@@ -145,7 +146,7 @@ def send_host_rsvp_notification_email(rsvp, event):
 
     try:
         resend.Emails.send({
-            "from": "onboarding@resend.dev",
+            "from": settings.DEFAULT_FROM_EMAIL,
             "to": [host_email],
             "subject": subject,
             "html": html_content,
