@@ -72,7 +72,7 @@ def send_rsvp_confirmation_email(rsvp, event):
 
     try:
         resend.Emails.send({
-            "from": "onboarding@resend.dev",
+            "from": "updates.eventrsvp.site",
             "to": [rsvp.guest_email],
             "subject": subject,
             "html": html_content,
